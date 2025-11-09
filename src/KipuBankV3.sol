@@ -364,12 +364,16 @@ contract KipuBankV3 is Ownable, ReentrancyGuard {
             );
         }
 
+        // Crear variable local del tipo IERC20
+        IERC20 token = IERC20(_token);
+
         //Interactions: Recibir tokens del usuario
         //1. Recibir tokens del usuario
-        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+        token.safeTransferFrom(msg.sender, address(this), _amount);
         
         // Interactions: Aprobar el router para gastar los tokens
-        IERC20(_token).safeApprove(address(ROUTER), _amount);
+        //DEPRECADO   token.safeApprove(address(ROUTER), _amount);
+        token.forceApprove(address(ROUTER), _amount);
         
         // Interactions: Ejecutar swap TOKEN → USDC
         address[] memory path = new address[](2);
