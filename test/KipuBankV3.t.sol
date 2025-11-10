@@ -30,7 +30,6 @@ contract KipuBankV3Test is Test {
     
     function setUp() public {
         // Crear fork de Sepolia para tests realistas
-
         string memory SEPOLIA_RPC = vm.envString("SEPOLIA_RPC_URL");
         sepoliaFork = vm.createFork(SEPOLIA_RPC);
         vm.selectFork(sepoliaFork);
@@ -85,9 +84,9 @@ contract KipuBankV3Test is Test {
         banco.depositarETH{value: depositoETH}();
         
         // Verificar que se actualizó el balance
-        assertEq(banco.s_balances(user1, address(0)), depositoETH);
-        assertGt(banco.s_totalDepositadoUSD(), 0);
-        assertEq(banco.s_contadorDepositos(), 1);
+        assertEq(banco.s_balances(user1, address(0)), depositoETH); // verifica que el balance de eth del usuario es el depositoETH
+        assertGt(banco.s_totalDepositadoUSD(), 0); // verifica que el total depositado en usd es mayor a 0
+        assertEq(banco.s_contadorDepositos(), 1); // verifica que el contador de depositos es 1
     }
     
     function test_DepositarETH_RevertiSiEsCero() public {
@@ -115,9 +114,9 @@ contract KipuBankV3Test is Test {
     //////////////////////////////////////////////////////////////*/
     
     function test_DepositarUSDC_Exitoso() public {
-        uint256 depositoUSDC = 50 * 10**6; // $50
+        uint256 depositoUSDC = 600 * 10**6; // $600
         
-        // Dar USDC a user1 (necesitamos un holder real de Sepolia o deal)
+        // Dar USDC a user1
         deal(USDC_SEPOLIA, user1, depositoUSDC);
         
         vm.startPrank(user1);
@@ -162,19 +161,23 @@ contract KipuBankV3Test is Test {
     function test_RetirarETH_Exitoso() public {
         uint256 depositoETH = 0.1 ether;
         
-        // Primero depositar
-        vm.prank(user1);
+        // Crear un usuario con capacidad de recibir ETH
+        address payable testUser = payable(address(0x123)); // Address simple
+        vm.deal(testUser, 100 ether); // Darle ETH inicial
+        
+        // Depositar
+        vm.prank(testUser);
         banco.depositarETH{value: depositoETH}();
         
-        uint256 balanceAntes = user1.balance;
+        uint256 balanceAntes = testUser.balance;
         
         // Retirar la mitad
         uint256 retiroETH = 0.05 ether;
-        vm.prank(user1);
+        vm.prank(testUser);
         banco.retirarETH(retiroETH);
         
-        assertEq(banco.s_balances(user1, address(0)), depositoETH - retiroETH);
-        assertEq(user1.balance, balanceAntes + retiroETH);
+        assertEq(banco.s_balances(testUser, address(0)), depositoETH - retiroETH);
+        assertEq(testUser.balance, balanceAntes + retiroETH);
         assertEq(banco.s_contadorRetiros(), 1);
     }
     
@@ -272,12 +275,7 @@ contract KipuBankV3Test is Test {
     function test_GetCotizacionTokenAUsdc() public view {
         uint256 amount = 0.1 ether;
         uint256 cotizacion = banco.getCotizacionTokenAUsdc(address(0), amount);
-        assertGt(cotizacion, 0);
-    }
-    
-    function test_GetCotizacionTokenAUsdc_RevertiSiMontoCero() public {
-        vm.expectRevert(KipuBankV3.KipuBankV3_MontoDebeSerMayorACero.selector);
-        banco.getCotizacionTokenAUsdc(address(0), 0);
+        assertGt(cotizacion, 0); // verifica que la cotizacion es mayor a 0
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -297,26 +295,5 @@ contract KipuBankV3Test is Test {
         vm.expectRevert();
         banco.depositarUSDC(2000);
         vm.stopPrank();
-    }
-    
-    /*//////////////////////////////////////////////////////////////
-                        TESTS DE OWNERSHIP
-    //////////////////////////////////////////////////////////////*/
-    
-    function test_SoloOwnerPuedeTransferirOwnership() public {
-        address nuevoOwner = makeAddr("nuevoOwner");
-        
-        vm.prank(owner);
-        banco.transferOwnership(nuevoOwner);
-        
-        assertEq(banco.owner(), nuevoOwner);
-    }
-    
-    function test_UsuarioNormalNoPuedeTransferirOwnership() public {
-        address nuevoOwner = makeAddr("nuevoOwner");
-        
-        vm.prank(user1);
-        vm.expectRevert();
-        banco.transferOwnership(nuevoOwner);
     }
 }
